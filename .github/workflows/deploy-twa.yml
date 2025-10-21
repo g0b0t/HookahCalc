@@ -1,0 +1,55 @@
+name: Deploy TWA (hookah-split-twa) to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]   # или твоя основная ветка
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: hookah-split-twa/package-lock.json
+
+      - name: Install deps
+        working-directory: hookah-split-twa
+        run: npm ci
+
+      - name: Build
+        working-directory: hookah-split-twa
+        run: npm run build
+
+      # SPA-фоллбек (опционально): если будут клиентские роуты, чтобы /route не давал 404
+      - name: Add 404 fallback
+        run: cp hookah-split-twa/dist/index.html hookah-split-twa/dist/404.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: hookah-split-twa/dist
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
