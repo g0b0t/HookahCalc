@@ -47,5 +47,3 @@
 cd hookah-split-twa
 npm i
 npm run dev
-
----
