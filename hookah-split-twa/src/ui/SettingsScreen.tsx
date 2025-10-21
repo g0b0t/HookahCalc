@@ -1,4 +1,3 @@
-import React from "react";
 import { repo } from "../storage/localRepo";
 
 export default function SettingsScreen() {
