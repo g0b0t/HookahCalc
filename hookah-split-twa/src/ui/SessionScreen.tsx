@@ -118,9 +118,9 @@ function SessionView({
 }
 
 function CreateSession({ onCreate }: { onCreate: (s: Session) => void }) {
-  const [title, setTitle] = useState("Пятница у Алекса");
-  const [place, setPlace] = useState("Дом");
-  const [price, setPrice] = useState(700); // рубли (целое)
+  const [title, setTitle] = useState("Вечер");
+  const [place, setPlace] = useState("Хата Ивана");
+  const [price, setPrice] = useState(145); // рубли (целое)
 
   function create() {
     const s: Session = {
