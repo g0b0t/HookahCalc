@@ -9,7 +9,6 @@
 
 ## Содержание
 
-- [Структура репозитория](#структура-репозитория)
 - [Дорожная карта](#дорожная-карта)
 - [Быстрый старт (TWA)](#быстрый-старт-twa)
 - [Деплой на GitHub Pages](#деплой-на-github-pages)
@@ -18,40 +17,6 @@
 - [Качество и стиль](#качество-и-стиль)
 - [План подмодулей/подпроектов](#план-подмодулейподпроектов)
 - [Лицензия](#лицензия)
-
----
-
-## Структура репозитория
-
-HookahCalc/
-├─ .github/
-│ └─ workflows/
-│ └─ deploy-twa.yml # деплой TWA на GitHub Pages
-├─ hookah-split-twa/ # TWA-приложение (S0)
-│ ├─ README.md # подробный README по TWA
-│ ├─ package.json
-│ ├─ tsconfig.json
-│ ├─ vite.config.ts
-│ ├─ index.html
-│ └─ src/
-│ ├─ App.tsx
-│ ├─ main.tsx
-│ ├─ index.css
-│ ├─ telegram.ts
-│ ├─ storage/
-│ │ ├─ types.ts
-│ │ ├─ localRepo.ts
-│ │ └─ schema.ts
-│ ├─ domain/
-│ │ ├─ money.ts
-│ │ └─ settlement.ts
-│ └─ ui/
-│ ├─ SessionScreen.tsx
-│ ├─ SummaryScreen.tsx
-│ └─ SettingsScreen.tsx
-├─ .gitignore
-└─ README.md # этот файл
-
 
 ---
 
