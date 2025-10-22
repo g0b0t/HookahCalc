@@ -25,6 +25,7 @@ async function main() {
   await app.register(metricsPlugin);
 
   app.get("/health", async () => ({ ok: true }));
+  app.get("/debug/auth", async (req) => ({ tg: (req as any).tg ?? null, headers: req.headers }));
 
   await registerAuthRoutes(app);
   await registerSessionRoutes(app);
