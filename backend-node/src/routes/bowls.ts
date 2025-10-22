@@ -7,9 +7,12 @@ import { randomUUID } from "node:crypto";
 
 export async function registerBowlRoutes(app: FastifyInstance) {
   app.post("/sessions/:id/bowls", async (req, reply) => {
-    // ⬇️ write → авторизация обязательна
+    // ⬇️ авторизация (write)
     const tg = req.tg;
     if (!tg?.user) return reply.code(401).send({ error: "unauthorized" });
+
+    // ✅ фикс: кэшируем actorId, чтобы сужение типа не терялось в колбэке
+    const actorId = tg.user.id;
 
     const sessionId = (req.params as any).id;
     const body = z.object({
@@ -18,18 +21,19 @@ export async function registerBowlRoutes(app: FastifyInstance) {
       actionId: z.string().uuid(),
     }).parse(req.body);
 
-    const ifMatch = req.headers["if-match"]; // строка версии
+    const ifMatch = req.headers["if-match"];
+
     await withLock(`sess:${sessionId}`, async () => {
       const s = await readSession(sessionId);
-      if (!s) return reply.code(404).send({ error: "not_found" });
+      if (!s) { reply.code(404).send({ error: "not_found" }); return; }
 
       if (ifMatch && String(s.version) !== String(ifMatch)) {
-        return reply.code(409).send({ error: "version_conflict", version: s.version });
+        reply.code(409).send({ error: "version_conflict", version: s.version }); return;
       }
 
       (s as any)._actions = Array.isArray((s as any)._actions) ? (s as any)._actions : [];
       if ((s as any)._actions.includes(body.actionId)) {
-        return reply.code(200).send({ ok: true, dedup: true });
+        reply.code(200).send({ ok: true, dedup: true }); return;
       }
 
       const price = body.priceRub ?? s.pricePerBowlRub;
@@ -44,11 +48,16 @@ export async function registerBowlRoutes(app: FastifyInstance) {
       (s as any)._actions.push(body.actionId);
       if ((s as any)._actions.length > 200) (s as any)._actions.shift();
       s.version++;
-        
-      await writeSession(s);
-      await appendEvent(s.id, { type: "bowl.added", actor: tg.user.id, bowlId: bowl.id, actionId: body.actionId });
 
-      return reply.code(201).send({ bowl, version: s.version });
+      await writeSession(s);
+      await appendEvent(s.id, {
+        type: "bowl.added",
+        actor: actorId,              // ✅ используем сохранённый id
+        bowlId: bowl.id,
+        actionId: body.actionId,
+      });
+
+      reply.code(201).send({ bowl, version: s.version });
     });
   });
 }
