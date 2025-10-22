@@ -1,0 +1,141 @@
+{
+    "info": {
+      "name": "HookahCalc S1 (Local)",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      "_postman_id": "d7e1f8a2-0000-4000-9000-111111111111"
+    },
+    "item": [
+      {
+        "name": "Health",
+        "request": {
+          "method": "GET",
+          "url": "{{base_url}}/health"
+        }
+      },
+      {
+        "name": "Create Session",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "x-dev-user", "value": "1" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "url": "{{base_url}}/sessions",
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"title\": \"Пятница у Алекса\",\n  \"place\": \"Дом\",\n  \"pricePerBowlRub\": 700\n}"
+          }
+        },
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "let json = pm.response.json();",
+                "pm.environment.set('session_id', json.session.id);",
+                "pm.environment.set('version', String(json.session.version));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Join: Alex",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "x-dev-user", "value": "1" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "url": "{{base_url}}/sessions/{{session_id}}/participants/join",
+          "body": {
+            "mode": "raw",
+            "raw": "{ \"label\": \"{{user1_label}}\" }"
+          }
+        }
+      },
+      {
+        "name": "Join: Misha",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "x-dev-user", "value": "1" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "url": "{{base_url}}/sessions/{{session_id}}/participants/join",
+          "body": {
+            "mode": "raw",
+            "raw": "{ \"label\": \"{{user2_label}}\" }"
+          }
+        }
+      },
+      {
+        "name": "Get Session (capture user IDs)",
+        "request": {
+          "method": "GET",
+          "url": "{{base_url}}/sessions/{{session_id}}"
+        },
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "let json = pm.response.json();",
+                "let users = json.session.users || [];",
+                "let u1 = users.find(u => u.label === pm.environment.get('user1_label'));",
+                "let u2 = users.find(u => u.label === pm.environment.get('user2_label'));",
+                "if (u1) pm.environment.set('user1_id', u1.id);",
+                "if (u2) pm.environment.set('user2_id', u2.id);",
+                "pm.environment.set('version', String(json.session.version));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Add Bowl",
+        "request": {
+          "method": "POST",
+          "header": [
+            { "key": "x-dev-user", "value": "1" },
+            { "key": "If-Match", "value": "{{version}}" },
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "url": "{{base_url}}/sessions/{{session_id}}/bowls",
+          "body": {
+            "mode": "raw",
+            "raw": "{\n  \"participantIds\": [\"{{user1_id}}\", \"{{user2_id}}\"],\n  \"actionId\": \"{{$randomUUID}}\"\n}"
+          }
+        },
+        "event": [
+          {
+            "listen": "test",
+            "script": {
+              "exec": [
+                "let json = pm.response.json();",
+                "if (json.version) pm.environment.set('version', String(json.version));"
+              ],
+              "type": "text/javascript"
+            }
+          }
+        ]
+      },
+      {
+        "name": "Settlement",
+        "request": {
+          "method": "GET",
+          "url": "{{base_url}}/sessions/{{session_id}}/settlement"
+        }
+      },
+      {
+        "name": "QR (SVG)",
+        "request": {
+          "method": "GET",
+          "url": "{{base_url}}/sessions/{{session_id}}/qr"
+        }
+      }
+    ]
+  }
+  
