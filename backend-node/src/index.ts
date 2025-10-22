@@ -2,8 +2,9 @@ import Fastify from "fastify";
 
 import { corsPlugin } from "./middleware/cors.js";
 import { rateLimitPlugin } from "./middleware/rateLimit.js";
-import { authPlugin } from "./auth/authHook.js";
+//import { authPlugin } from "./auth/authHook.js";
 import { metricsPlugin } from "./metrics/metrics.js";
+import { installAuth } from "./auth/authHook.js";
 
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerSessionRoutes } from "./routes/sessions.js";
@@ -21,17 +22,20 @@ async function main() {
 
   await app.register(corsPlugin);
   await app.register(rateLimitPlugin);
-  await app.register(authPlugin);
+  //await app.register(authPlugin);
+  
+  installAuth(app);
+
   await app.register(metricsPlugin);
 
   app.get("/health", async () => ({ ok: true }));
 
   //----------------debug---------------------------------
-  app.get("/debug/auth", async (req) => ({ tg: (req as any).tg ?? null, headers: req.headers }));
   app.get("/debug/env", async () => ({
     DEV_ALLOW_ANON: process.env.DEV_ALLOW_ANON,
     NODE_ENV: process.env.NODE_ENV,
   }));
+  app.get("/debug/auth", async (req) => ({ tg: (req as any).tg ?? null, headers: req.headers }));
    //----------------debug---------------------------------
 
   await registerAuthRoutes(app);
