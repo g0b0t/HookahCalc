@@ -4,33 +4,30 @@ import { verifyInitData } from "./telegramVerify.js";
 const DEV_ALLOW_ANON = process.env.DEV_ALLOW_ANON === "1";
 
 export const authPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
-  // Страховка: в проде dev-режим запрещён
-  if (process.env.NODE_ENV === "production" && DEV_ALLOW_ANON) {
-    fastify.log.warn("DEV_ALLOW_ANON is ON in production — disabling it");
-  }
+  fastify.log.info({ DEV_ALLOW_ANON, NODE_ENV: process.env.NODE_ENV }, "authPlugin: init");
 
   fastify.addHook("onRequest", (req, _reply, next) => {
-    // Повесим результат сюда, чтобы роуты могли проверять авторизацию
     (req as any).tg = undefined;
 
-    // 1) DEV-обход: если разрешено и пришёл x-dev-user — считаем авторизованным
-    if (DEV_ALLOW_ANON && process.env.NODE_ENV !== "production") {
+    // --- DEV обход: x-dev-user -> авторизуем тестового юзера
+    if (DEV_ALLOW_ANON) {
       const devUser = req.headers["x-dev-user"];
       if (devUser) {
         (req as any).tg = {
           user: {
             id: Number(devUser) || 1,
             username: "dev",
-            first_name: "Dev"
+            first_name: "Dev",
           },
           auth_date: Math.floor(Date.now() / 1000),
-          start_param: undefined
+          start_param: undefined,
         };
+        req.log.info({ devUser }, "auth: dev user accepted");
         return next();
       }
     }
 
-    // 2) Обычная проверка X-Telegram-Init-Data
+    // --- Боевая ветка: проверяем X-Telegram-Init-Data
     const initData = req.headers["x-telegram-init-data"];
     if (initData && typeof initData === "string") {
       try {
@@ -39,12 +36,12 @@ export const authPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
           process.env.TELEGRAM_BOT_TOKEN!,
           Number(process.env.INITDATA_MAX_AGE_SEC ?? 86400)
         );
-        (req as any).tg = v; // { user, auth_date, start_param }
-      } catch {
-        // остаёмся анонимом — write-ручки вернут 401
+        (req as any).tg = v;
+        req.log.debug("auth: telegram initData ok");
+      } catch (e) {
+        req.log.warn({ err: e }, "auth: telegram initData failed");
       }
     }
-
     next();
   });
 

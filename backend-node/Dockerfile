@@ -18,10 +18,6 @@
     FROM node:20-alpine
     WORKDIR /app
     
-    ENV NODE_ENV=production
-    ENV PORT=8080
-    ENV DATA_DIR=/app/data
-    
     # prod-зависимости и собранный код
     COPY --from=build /app/node_modules ./node_modules
     COPY --from=build /app/dist ./dist
