@@ -1,39 +1,74 @@
 import Fastify from "fastify";
-import cors from "@fastify/cors";
-import rate from "@fastify/rate-limit";
-import pino from "pino";
-import { authPlugin } from "./auth/authHook";
-import { metricsPlugin } from "./metrics/metrics";
-import { registerAuthRoutes } from "./routes/auth";
-import { registerSessionRoutes } from "./routes/sessions";
-import { registerParticipantRoutes } from "./routes/participants";
-import { registerBowlRoutes } from "./routes/bowls";
-import { registerSettlementRoutes } from "./routes/settlement";
-import { registerQrRoutes } from "./routes/qr";
 
-const app = Fastify({ logger: pino({ level: "info" }) });
+import { corsPlugin } from "./middleware/cors.js";
+import { rateLimitPlugin } from "./middleware/rateLimit.js";
+import { authPlugin } from "./auth/authHook.js";
+import { metricsPlugin } from "./metrics/metrics.js";
 
-await app.register(cors, {
-  origin: (origin, cb) => {
-    const allowed = (process.env.ORIGIN_ALLOWED ?? "").split(",").map(s => s.trim()).filter(Boolean);
-    if (!origin || allowed.some(a => origin.endsWith(a))) cb(null, true);
-    else cb(new Error("Origin not allowed"), false);
+import { registerAuthRoutes } from "./routes/auth.js";
+import { registerSessionRoutes } from "./routes/sessions.js";
+import { registerParticipantRoutes } from "./routes/participants.js";
+import { registerBowlRoutes } from "./routes/bowls.js";
+import { registerSettlementRoutes } from "./routes/settlement.js";
+import { registerQrRoutes } from "./routes/qr.js";
+
+import { sendError } from "./domain/errors.js";
+
+async function main() {
+  const app = Fastify({
+    logger: { level: process.env.LOG_LEVEL ?? "info" },
+  });
+
+  await app.register(corsPlugin);
+  await app.register(rateLimitPlugin);
+  await app.register(authPlugin);
+  await app.register(metricsPlugin);
+
+  app.get("/health", async () => ({ ok: true }));
+
+  await registerAuthRoutes(app);
+  await registerSessionRoutes(app);
+  await registerParticipantRoutes(app);
+  await registerBowlRoutes(app);
+  await registerSettlementRoutes(app);
+  await registerQrRoutes(app);
+
+  app.setErrorHandler((err, _req, reply) => {
+    app.log.error({ err }, "unhandled_error");
+    return sendError(reply, err);
+  });
+
+  app.setNotFoundHandler((_req, reply) => {
+    reply.code(404).send({ error: "not_found" });
+  });
+
+  const port = Number(process.env.PORT ?? 8080);
+  const host = process.env.HOST ?? "0.0.0.0";
+
+  try {
+    await app.listen({ port, host });
+    app.log.info(
+      { port, host, dataDir: process.env.DATA_DIR ?? "./data" },
+      "Backend started"
+    );
+  } catch (e) {
+    app.log.fatal(e as Error);
+    process.exit(1);
   }
-});
-await app.register(rate, { max: 60, timeWindow: "1 minute" });
-await app.register(authPlugin);
-await app.register(metricsPlugin);
 
-app.get("/health", async () => ({ ok: true }));
+  const shutdown = async (signal: string) => {
+    app.log.info({ signal }, "shutdown");
+    try {
+      await app.close();
+      process.exit(0);
+    } catch (e) {
+      app.log.fatal(e as Error);
+      process.exit(1);
+    }
+  };
 
-await registerAuthRoutes(app);
-await registerSessionRoutes(app);
-await registerParticipantRoutes(app);
-await registerBowlRoutes(app);
-await registerSettlementRoutes(app);
-await registerQrRoutes(app);
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
 
-const port = Number(process.env.PORT ?? 8080);
-app.listen({ port, host: "0.0.0.0" }).catch((e) => {
-  app.log.error(e); process.exit(1);
-});
+void main();

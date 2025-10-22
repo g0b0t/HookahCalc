@@ -1,5 +1,5 @@
 import type { FastifyPluginCallback } from "fastify";
-import { verifyInitData } from "./telegramVerify";
+import { verifyInitData } from "./telegramVerify.js";
 import { z } from "zod";
 
 export const authPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
