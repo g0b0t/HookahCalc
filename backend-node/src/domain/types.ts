@@ -26,4 +26,7 @@ export type Session = {
   users: { id: ID; label: string; active: boolean }[];
   bowls: Bowl[];
   version: number;
+  _writeToken: string;
 };
+
+export type PublicSession = Omit<Session, "_writeToken">;

@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { ensureDir, writeAtomic } from "../utils/fsAtomic.js";
+import { withLock } from "./locks.js";
 import type { Session, ID } from "../domain/types.js";
 
 const ROOT = process.env.DATA_DIR ?? "./data";
@@ -13,7 +15,12 @@ await Promise.all([ensureDir(SESS), ensureDir(EVTS), ensureDir(IDX)]);
 export async function readSession(id: ID): Promise<Session | null> {
   try {
     const s = await fs.readFile(path.join(SESS, `${id}.json`), "utf8");
-    return JSON.parse(s) as Session;
+    const session = JSON.parse(s) as Session;
+    if (!session._writeToken) {
+      session._writeToken = randomUUID();
+      await writeSession(session);
+    }
+    return session;
   } catch { return null; }
 }
 
@@ -28,9 +35,11 @@ export async function appendEvent(sessionId: ID, evt: any) {
 
 export async function indexAdd(hostTgId: number, sessionId: ID) {
   const file = path.join(IDX, "sessions_by_host.json");
-  let j: Record<string, ID[]> = {};
-  try { j = JSON.parse(await fs.readFile(file, "utf8")); } catch {}
-  const key = String(hostTgId);
-  j[key] = Array.from(new Set([...(j[key] ?? []), sessionId]));
-  await writeAtomic(file, JSON.stringify(j));
+  await withLock("idx:sessions_by_host", async () => {
+    let j: Record<string, ID[]> = {};
+    try { j = JSON.parse(await fs.readFile(file, "utf8")); } catch {}
+    const key = String(hostTgId);
+    j[key] = Array.from(new Set([...(j[key] ?? []), sessionId]));
+    await writeAtomic(file, JSON.stringify(j));
+  });
 }
