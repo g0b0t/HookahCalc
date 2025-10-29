@@ -18,7 +18,8 @@
           "method": "POST",
           "header": [
             { "key": "x-dev-user", "value": "1" },
-            { "key": "Content-Type", "value": "application/json" }
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "x-session-token", "value": "{{session_token}}" }
           ],
           "url": "{{base_url}}/sessions",
           "body": {
@@ -33,7 +34,8 @@
               "exec": [
                 "let json = pm.response.json();",
                 "pm.environment.set('session_id', json.session.id);",
-                "pm.environment.set('version', String(json.session.version));"
+                "pm.environment.set('version', String(json.session.version));",
+                "if (json.writeToken) pm.environment.set('session_token', json.writeToken);"
               ],
               "type": "text/javascript"
             }
@@ -46,7 +48,8 @@
           "method": "POST",
           "header": [
             { "key": "x-dev-user", "value": "1" },
-            { "key": "Content-Type", "value": "application/json" }
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "x-session-token", "value": "{{session_token}}" }
           ],
           "url": "{{base_url}}/sessions/{{session_id}}/participants/join",
           "body": {
@@ -61,7 +64,8 @@
           "method": "POST",
           "header": [
             { "key": "x-dev-user", "value": "1" },
-            { "key": "Content-Type", "value": "application/json" }
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "x-session-token", "value": "{{session_token}}" }
           ],
           "url": "{{base_url}}/sessions/{{session_id}}/participants/join",
           "body": {
@@ -101,7 +105,8 @@
           "header": [
             { "key": "x-dev-user", "value": "1" },
             { "key": "If-Match", "value": "{{version}}" },
-            { "key": "Content-Type", "value": "application/json" }
+            { "key": "Content-Type", "value": "application/json" },
+            { "key": "x-session-token", "value": "{{session_token}}" }
           ],
           "url": "{{base_url}}/sessions/{{session_id}}/bowls",
           "body": {

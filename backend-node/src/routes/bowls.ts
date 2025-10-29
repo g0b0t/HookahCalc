@@ -4,6 +4,7 @@ import { z } from "zod";
 import { readSession, writeSession, appendEvent } from "../repo/fileRepo.js";
 import { withLock } from "../repo/locks.js";
 import { randomUUID } from "node:crypto";
+import { extractSessionToken } from "./sessionAccess.js";
 
 export async function registerBowlRoutes(app: FastifyInstance) {
   app.post("/sessions/:id/bowls", async (req, reply) => {
@@ -22,18 +23,33 @@ export async function registerBowlRoutes(app: FastifyInstance) {
     }).parse(req.body);
 
     const ifMatch = req.headers["if-match"];
+    const token = extractSessionToken(req);
+    if (!token) return reply.code(403).send({ error: "forbidden" });
 
-    await withLock(`sess:${sessionId}`, async () => {
+    const { status, payload } = await withLock(`sess:${sessionId}`, async () => {
       const s = await readSession(sessionId);
-      if (!s) { reply.code(404).send({ error: "not_found" }); return; }
+      if (!s) return { status: 404, payload: { error: "not_found" } } as const;
+
+      if (s._writeToken !== token) {
+        return { status: 403, payload: { error: "forbidden" } } as const;
+      }
 
       if (ifMatch && String(s.version) !== String(ifMatch)) {
-        reply.code(409).send({ error: "version_conflict", version: s.version }); return;
+        return { status: 409, payload: { error: "version_conflict", version: s.version } } as const;
       }
 
       (s as any)._actions = Array.isArray((s as any)._actions) ? (s as any)._actions : [];
       if ((s as any)._actions.includes(body.actionId)) {
-        reply.code(200).send({ ok: true, dedup: true }); return;
+        return { status: 200, payload: { ok: true, dedup: true } } as const;
+      }
+
+      const participantSet = new Set(s.users.map((u) => u.id));
+      const unknown = body.participantIds.filter((pid) => !participantSet.has(pid));
+      if (unknown.length) {
+        return {
+          status: 400,
+          payload: { error: "unknown_participants", participantIds: unknown },
+        } as const;
       }
 
       const price = body.priceRub ?? s.pricePerBowlRub;
@@ -57,7 +73,9 @@ export async function registerBowlRoutes(app: FastifyInstance) {
         actionId: body.actionId,
       });
 
-      reply.code(201).send({ bowl, version: s.version });
+      return { status: 201, payload: { bowl, version: s.version } } as const;
     });
+
+    return reply.code(status).send(payload);
   });
 }
